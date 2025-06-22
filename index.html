@@ -58,8 +58,10 @@
     .btn:hover { background-color: var(--button-primary-hover-bg); }
     .checkbox-group label { display: flex; align-items: center; margin-bottom: 10px; }
     .checkbox-group input { margin-right: 10px; transform: scale(1.3); }
-    #custom-exercise-list { margin-top: 10px; font-style: italic; }
     .radio-group label { margin-right: 15px; }
+    .progression-input-group { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; margin-bottom:10px;}
+    .progression-input-group label { grid-column: 1 / -1; }
+    .progression-input-group input { width: 70px; }
 
     /* App View Styling */
     .app-controls { text-align: center; margin-top: 20px; }
@@ -69,8 +71,9 @@
     
     /* Kalender Styling */
     #calendar-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 10px; padding: 10px; max-width: 500px; margin: 20px auto; }
-    .calendar-day { display: flex; justify-content: center; align-items: center; background: var(--card-bg-color); color: var(--text-color); text-decoration: none; font-weight: bold; font-size: 1.5em; height: 60px; border-radius: 10px; box-shadow: var(--card-shadow); }
+    .calendar-day { display: flex; flex-direction: column; justify-content: center; align-items: center; background: var(--card-bg-color); color: var(--text-color); text-decoration: none; font-weight: bold; font-size: 1.5em; height: 60px; border-radius: 10px; box-shadow: var(--card-shadow); }
     .calendar-day.completed { background-color: var(--completed-day-color); color: white; }
+    .calendar-day.rest-day { font-size: 1em; font-style: italic; opacity: 0.8; }
     
     /* Detail Pagina Styling */
     .day-detail-card { background: var(--card-bg-color); border-radius: 12px; padding: 15px 20px; margin: 10px auto; box-shadow: var(--card-shadow); max-width: 600px; }
@@ -78,18 +81,17 @@
     .day-content { line-height: 1.6; }
     .day-content > strong { font-size: 1.1em; }
     .day-content ul { list-style: none; padding-left: 0; }
-    .day-content li { margin-bottom: 10px; }
+    .day-content li { margin-bottom: 10px; font-size: 1.1em; }
     .back-button { display: block; max-width: 600px; margin: 20px auto 10px; text-align: center; color: var(--text-color); text-decoration: none; font-weight: bold; padding: 10px; background: var(--card-bg-color); border-radius: 8px; box-shadow: var(--card-shadow); }
     .complete-button { background-color: var(--button-tertiary-bg); color: white; margin-top: 15px; }
     .complete-button.done { background-color: #28a745; }
-    .workout-modus-btn { background-color: #fff799; color: #333; margin-top: 15px; }
+    .workout-modus-btn { background-color: #fff799; color: #333; margin-bottom: 15px; }
     .timer-button { background-color: var(--button-primary-bg); color: white; padding: 5px 10px; font-size: 0.8em; border-radius: 6px; cursor: pointer; margin-left: 10px; border: none; }
     .timer { display: inline-block; margin-left: 10px; font-weight: bold; }
   </style>
 </head>
 <body>
   <h1>WC - Workout Challenge</h1>
-
   <div class="warning">⚠️ Dit is een persoonlijke tool – niet bedoeld als medisch advies.</div>
   <p class="intro-text">Stel je eigen workout challenge samen en hou je voortgang bij!</p>
   
@@ -102,7 +104,7 @@
       <div class="app-controls" id="app-controls">
           <div class="button-group">
             <a href="mailto:post.master@me.com?subject=Feedback%20voor%20WC%20App" class="btn feedback-button">Geef Feedback</a>
-            <button id="reset-btn" class="btn reset-button">Reset Challenge</button>
+            <button id="reset-btn" class="btn reset-button">Nieuwe Challenge</button>
           </div>
       </div>
   </div>
@@ -110,20 +112,21 @@
   <div id="setup-container" style="display: none;">
       <div class="setup-step" id="name-step">
           <h3>Welkom!</h3>
-          <div class="form-group">
-              <label for="user-name">Wat is je naam?</label>
-              <input type="text" id="user-name" placeholder="Jouw naam">
-          </div>
+          <div class="form-group"><label for="user-name">Wat is je naam?</label><input type="text" id="user-name" placeholder="Jouw naam"></div>
           <button id="name-submit" class="btn">Volgende</button>
       </div>
 
       <div class="setup-step" id="duration-step" style="display: none;">
           <h3>Challenge Duur</h3>
-          <div class="form-group">
-              <label for="challenge-duration">Hoeveel dagen duurt je challenge?</label>
-              <input type="number" id="challenge-duration" value="30" min="1">
-          </div>
+          <div class="form-group"><label for="challenge-duration">Hoeveel dagen duurt je challenge?</label><input type="number" id="challenge-duration" value="30" min="1"></div>
           <button id="duration-submit" class="btn">Volgende</button>
+      </div>
+      
+      <div class="setup-step" id="rest-day-step" style="display: none;">
+          <h3>Rustdagen</h3>
+          <div class="form-group"><label for="rest-day-interval">Neem elke hoeveelste dag een rustdag?</label><input type="number" id="rest-day-interval" value="5" min="0"></div>
+          <p style="font-size:0.9em; opacity:0.7;">(Zet op 0 voor geen automatische rustdagen)</p>
+          <button id="rest-day-submit" class="btn">Volgende</button>
       </div>
 
       <div class="setup-step" id="exercise-step" style="display: none;">
@@ -136,15 +139,18 @@
           </div>
           <hr>
           <div class="form-group">
-              <label for="custom-exercise">Voeg een eigen oefening toe:</label>
-              <input type="text" id="custom-exercise" placeholder="Bijv. Push-ups">
+              <label for="custom-exercise">Voeg een eigen oefening toe:</label><input type="text" id="custom-exercise" placeholder="Bijv. Push-ups">
               <div class="form-group radio-group" style="margin-top:10px;">
-                  <label><input type="radio" name="custom-type" value="reps" checked> Aantal</label>
-                  <label><input type="radio" name="custom-type" value="timed"> Seconden</label>
+                  <label><input type="radio" name="custom-type" value="reps" checked> Aantal</label><label><input type="radio" name="custom-type" value="timed"> Seconden</label>
               </div>
               <button id="add-exercise-btn" class="btn" style="width: auto; padding: 8px 12px; margin-top: 5px;">Voeg toe</button>
           </div>
-          <div id="custom-exercise-list"></div>
+          <button id="exercise-submit" class="btn">Volgende</button>
+      </div>
+
+      <div class="setup-step" id="progression-step" style="display:none;">
+          <h3>Stel je Doelen in</h3>
+          <div id="progression-inputs"></div>
           <button id="finish-setup" class="btn">Start mijn Challenge!</button>
       </div>
   </div>
@@ -153,80 +159,122 @@
   <audio id="beep-sound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
 
   <script>
-    let config = { userName: '', duration: 30, exercises: [] };
+    let config = {};
+    let challengeData = [];
+    let wakeLock = null;
 
     const appContainer = document.getElementById('app-container');
     const setupContainer = document.getElementById('setup-container');
-    const nameStep = document.getElementById('name-step');
-    const durationStep = document.getElementById('duration-step');
-    const exerciseStep = document.getElementById('exercise-step');
+    const allSteps = document.querySelectorAll('.setup-step');
     const calendarView = document.getElementById('calendar-view');
     const detailView = document.getElementById('detail-view');
     const appControls = document.getElementById('app-controls');
 
-    // === SETUP WIZARD LOGICA ===
-    function showStep(stepElement) {
-        [nameStep, durationStep, exerciseStep].forEach(s => s.style.display = 'none');
-        stepElement.style.display = 'block';
+    function showStep(stepId) {
+        allSteps.forEach(s => s.style.display = 'none');
+        document.getElementById(stepId).style.display = 'block';
     }
 
     document.getElementById('name-submit').addEventListener('click', () => {
         const nameInput = document.getElementById('user-name');
-        if (nameInput.value.trim() === '') { alert('Vul alsjeblieft je naam in.'); return; }
+        if (!nameInput.value.trim()) { alert('Vul alsjeblieft je naam in.'); return; }
         config.userName = nameInput.value.trim();
-        showStep(durationStep);
+        showStep('duration-step');
     });
 
     document.getElementById('duration-submit').addEventListener('click', () => {
-        const durationInput = document.getElementById('challenge-duration');
-        config.duration = parseInt(durationInput.value, 10) || 30;
-        showStep(exerciseStep);
+        config.duration = parseInt(document.getElementById('challenge-duration').value, 10) || 30;
+        showStep('rest-day-step');
     });
 
+    document.getElementById('rest-day-submit').addEventListener('click', () => {
+        config.restDayInterval = parseInt(document.getElementById('rest-day-interval').value, 10);
+        showStep('exercise-step');
+    });
+    
     document.getElementById('add-exercise-btn').addEventListener('click', () => {
         const customInput = document.getElementById('custom-exercise');
-        const customExerciseName = customInput.value.trim();
+        const name = customInput.value.trim();
         const type = document.querySelector('input[name="custom-type"]:checked').value;
-        if (customExerciseName) {
-            const listContainer = document.getElementById('default-exercises');
-            const newCheckboxLabel = document.createElement('label');
-            newCheckboxLabel.innerHTML = `<input type="checkbox" data-type="${type}" value="${customExerciseName}" checked> ${customExerciseName} (${type})`;
-            listContainer.appendChild(newCheckboxLabel);
+        if (name) {
+            const container = document.getElementById('default-exercises');
+            const label = document.createElement('label');
+            label.innerHTML = `<input type="checkbox" data-type="${type}" value="${name}" checked> ${name}`;
+            container.appendChild(label);
             customInput.value = '';
         }
     });
+
+    document.getElementById('exercise-submit').addEventListener('click', () => {
+        const selected = document.querySelectorAll('#default-exercises input:checked');
+        if (selected.length === 0) { alert('Kies minstens één oefening.'); return; }
+        config.exercises = Array.from(selected).map(cb => ({ name: cb.value, type: cb.dataset.type, start: 0, end: 0 }));
+        generateProgressionInputs();
+        showStep('progression-step');
+    });
+
+    function generateProgressionInputs() {
+        const container = document.getElementById('progression-inputs');
+        container.innerHTML = '';
+        config.exercises.forEach((ex, index) => {
+            const unit = ex.type === 'timed' ? 'seconden' : 'aantal';
+            const group = document.createElement('div');
+            group.className = 'progression-input-group';
+            group.innerHTML = `
+                <label for="ex-start-${index}">${ex.name}</label>
+                <input type="number" id="ex-start-${index}" placeholder="Start ${unit}" value="${ex.type === 'timed' ? 20 : 10}">
+                <input type="number" id="ex-end-${index}" placeholder="Einddoel ${unit}" value="${ex.type === 'timed' ? 120 : 50}">
+            `;
+            container.appendChild(group);
+        });
+    }
     
     document.getElementById('finish-setup').addEventListener('click', () => {
-        const selectedExercises = document.querySelectorAll('#default-exercises input[type="checkbox"]:checked');
-        if (selectedExercises.length === 0) { alert('Kies of voeg minstens één oefening toe.'); return; }
-        config.exercises = Array.from(selectedExercises).map(cb => ({ name: cb.value, type: cb.dataset.type }));
+        config.exercises.forEach((ex, index) => {
+            ex.start = parseInt(document.getElementById(`ex-start-${index}`).value, 10) || 0;
+            ex.end = parseInt(document.getElementById(`ex-end-${index}`).value, 10) || 0;
+        });
         localStorage.setItem('wc_config', JSON.stringify(config));
         startApp();
     });
 
-    // === APP LOGICA ===
-    let wakeLock = null;
+    function generateChallengeData() {
+        challengeData = [];
+        const totalWorkoutDays = config.duration - (config.restDayInterval > 0 ? Math.floor(config.duration / config.restDayInterval) : 0);
+        let workoutDayCounter = 0;
+
+        for (let i = 1; i <= config.duration; i++) {
+            const isRest = config.restDayInterval > 0 && i % config.restDayInterval === 0;
+            const dayObj = { day: i, rust: isRest, tasks: [] };
+
+            if (!isRest) {
+                config.exercises.forEach(ex => {
+                    const totalIncrease = ex.end - ex.start;
+                    const increasePerDay = totalWorkoutDays > 1 ? totalIncrease / (totalWorkoutDays - 1) : 0;
+                    const value = Math.round(ex.start + (workoutDayCounter * increasePerDay));
+                    dayObj.tasks.push({ name: ex.name, type: ex.type, value: value });
+                });
+                workoutDayCounter++;
+            }
+            challengeData.push(dayObj);
+        }
+    }
 
     async function toggleWakeLock(button) {
         if (wakeLock) {
             await wakeLock.release();
             wakeLock = null;
-            button.textContent = "Start Workout Modus";
-            button.style.backgroundColor = '';
+            if(button) button.textContent = "Start Workout Modus";
         } else {
             try {
                 wakeLock = await navigator.wakeLock.request('screen');
-                button.textContent = "✅ Workout Modus Actief";
-                button.style.backgroundColor = '#28a745';
+                if(button) button.textContent = "✅ Workout Modus Actief";
                 wakeLock.addEventListener('release', () => { wakeLock = null; if(button) button.textContent = "Start Workout Modus"; });
             } catch (e) { alert("Wake Lock wordt niet ondersteund."); }
         }
     }
 
-    function startTimer(displayElement, exerciseName) {
-        const seconds = parseInt(prompt(`Hoeveel seconden ${exerciseName}?`, 30), 10);
-        if (isNaN(seconds) || seconds <= 0) return;
-
+    function startTimer(displayElement, seconds) {
         let time = seconds;
         displayElement.textContent = `⏳ ${time}s`;
         const interval = setInterval(() => {
@@ -239,20 +287,26 @@
             }
         }, 1000);
     }
-
+    
     function renderCalendar() {
         calendarView.innerHTML = '';
-        for (let i = 1; i <= config.duration; i++) {
+        challengeData.forEach(dayData => {
             const dayLink = document.createElement('a');
-            dayLink.href = `#day-${i}`;
+            dayLink.href = `#day-${dayData.day}`;
             dayLink.className = 'calendar-day';
-            dayLink.textContent = i;
-            if (localStorage.getItem(`wc_day_${i}`) === 'true') dayLink.classList.add('completed');
+            if (dayData.rust) {
+                dayLink.classList.add('rest-day');
+                dayLink.innerHTML = `<span>${dayData.day}</span><span style="font-size:0.5em;">Rust</span>`;
+            } else {
+                dayLink.textContent = dayData.day;
+            }
+            if (localStorage.getItem(`wc_day_${dayData.day}`) === 'true') dayLink.classList.add('completed');
             calendarView.appendChild(dayLink);
-        }
+        });
     }
 
     function renderDetailView(dayNumber) {
+        const dayData = challengeData[dayNumber - 1];
         detailView.innerHTML = ''; 
 
         const backButton = document.createElement('a');
@@ -265,25 +319,37 @@
         card.className = 'day-detail-card';
         const isCompleted = localStorage.getItem(`wc_day_${dayNumber}`) === 'true';
 
-        let contentHTML = `<div class="day-content"><strong>Dag ${dayNumber}</strong><br><br><ul>`;
-        config.exercises.forEach((ex, index) => {
-            contentHTML += `<li>${ex.name}`;
-            if (ex.type === 'timed') {
-                contentHTML += ` <button class="timer-button" onclick="startTimer(document.getElementById('timer-span-${index}'), '${ex.name}')">Start Timer</button><span class="timer" id="timer-span-${index}"></span>`;
-            }
-            contentHTML += `</li>`;
-        });
-        contentHTML += '</ul></div>';
-        card.innerHTML = contentHTML;
+        let contentHTML = `<div class="day-content"><strong>Dag ${dayNumber}</strong>`;
+        const wakeBtn = document.createElement('button'); // Creëer knop als element
+
+        if (!dayData.rust) {
+            wakeBtn.className = 'btn workout-modus-btn';
+            wakeBtn.textContent = "Start Workout Modus";
+            wakeBtn.onclick = () => toggleWakeLock(wakeBtn);
+            card.appendChild(wakeBtn); // Voeg knop bovenaan toe
+        }
+
+        let taskListHTML = '<ul>';
+        if(dayData.rust) {
+            taskListHTML += '<li>Rustdag 🧘‍♀️</li>';
+        } else {
+            dayData.tasks.forEach((task, index) => {
+                taskListHTML += `<li>${task.name}: <strong>${task.value} ${task.type === 'timed' ? 'sec' : 'reps'}</strong>`;
+                if (task.type === 'timed') {
+                    taskListHTML += ` <button class="timer-button" onclick="startTimer(document.getElementById('timer-span-${index}'), ${task.value})">Start</button><span class="timer" id="timer-span-${index}"></span>`;
+                }
+                taskListHTML += `</li>`;
+            });
+        }
+        taskListHTML += '</ul>';
+        contentHTML += taskListHTML + '</div>';
+
+        const contentDiv = document.createElement('div');
+        contentDiv.innerHTML = contentHTML;
+        card.appendChild(contentDiv);
 
         if(isCompleted) card.classList.add('completed');
         
-        const wakeBtn = document.createElement('button');
-        wakeBtn.className = 'btn workout-modus-btn';
-        wakeBtn.textContent = "Start Workout Modus";
-        wakeBtn.onclick = () => toggleWakeLock(wakeBtn);
-        card.appendChild(wakeBtn);
-
         const completeBtn = document.createElement('button');
         completeBtn.className = 'btn complete-button';
         
@@ -299,12 +365,16 @@
             }
         };
 
-        completeBtn.onclick = () => {
+        completeBtn.onclick = async () => {
             const current = localStorage.getItem(`wc_day_${dayNumber}`) === 'true';
             const newState = !current;
             if (newState) localStorage.setItem(`wc_day_${dayNumber}`, 'true');
             else localStorage.removeItem(`wc_day_${dayNumber}`);
             updateButtonState(newState);
+
+            if (newState && wakeLock) { // Als voltooid wordt en wakeLock is actief
+                await toggleWakeLock(wakeBtn);
+            }
         };
 
         updateButtonState(isCompleted);
@@ -339,6 +409,7 @@
         setupContainer.style.display = 'none';
         appContainer.style.display = 'block';
         document.querySelector('.welcome-message').textContent = `Zet 'm op, ${config.userName}!`;
+        generateChallengeData();
         document.getElementById('reset-btn').addEventListener('click', resetApp);
         window.addEventListener('hashchange', router);
         router();
@@ -352,7 +423,7 @@
         } else {
             appContainer.style.display = 'none';
             setupContainer.style.display = 'block';
-            showStep(nameStep);
+            showStep('name-step');
         }
     }
 
