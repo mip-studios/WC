@@ -214,7 +214,6 @@
         const defaultValues = { 'Plank': [20, 180], 'Crunches': [15, 135], 'Leg Raises': [5, 65], 'Squats': [30, 90] };
         config.exercises.forEach((ex, index) => {
             const defaults = defaultValues[ex.name] || [ex.type === 'timed' ? 20 : 10, ex.type === 'timed' ? 120 : 50];
-            const unit = ex.type === 'timed' ? 'seconden' : 'aantal';
             const group = document.createElement('div');
             group.className = 'progression-input-group';
             group.innerHTML = `
@@ -236,14 +235,15 @@
         startApp();
     });
 
-    // === NIEUW: Slimme Progressie Logica ===
-    function easeInOutCubic(t) {
-        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    // === NIEUW: Verbeterde Progressie & Rustdag Logica ===
+    function easeInQuad(t) {
+        return t * t;
     }
 
     function generateChallengeData() {
         challengeData = [];
         const restDays = new Set();
+        // AANGEPAST: Zorg dat de laatste dag nooit een rustdag is.
         if (config.restDayInterval > 0) {
             for (let i = config.restDayInterval; i < config.duration; i += config.restDayInterval) {
                 restDays.add(i);
@@ -260,8 +260,12 @@
             if (!isRest) {
                 config.exercises.forEach(ex => {
                     const progressFraction = totalWorkoutDays > 1 ? workoutDayCounter / (totalWorkoutDays - 1) : 1;
-                    const easedFraction = easeInOutCubic(progressFraction);
-                    const value = Math.round(ex.start + (ex.end - ex.start) * easedFraction);
+                    const easedFraction = easeInQuad(progressFraction); // Gebruik de nieuwe ease-in curve
+                    const idealValue = ex.start + (ex.end - ex.start) * easedFraction;
+                    
+                    // AANGEPAST: Rond af op stappen van 5 voor plateaus en sprongen
+                    const value = Math.round(idealValue / 5) * 5; 
+                    
                     dayObj.tasks.push({ name: ex.name, type: ex.type, value: value });
                 });
                 workoutDayCounter++;
@@ -328,15 +332,17 @@
         const card = document.createElement('div');
         card.className = 'day-detail-card';
         const isCompleted = localStorage.getItem(`wc_day_${dayNumber}`) === 'true';
+        if(isCompleted) card.classList.add('completed');
 
         let contentHTML = `<div class="day-content"><strong>Dag ${dayNumber}</strong>`;
-        const wakeBtn = document.createElement('button');
+        card.innerHTML = contentHTML;
 
+        const wakeBtn = document.createElement('button');
         if (!dayData.rust) {
             wakeBtn.className = 'btn workout-modus-btn';
             wakeBtn.textContent = "Start Workout Modus";
             wakeBtn.onclick = () => toggleWakeLock(wakeBtn);
-            contentHTML += wakeBtn.outerHTML; // Voeg knop bovenaan toe als HTML string
+            card.appendChild(wakeBtn);
         }
 
         let taskListHTML = '<ul>';
@@ -351,18 +357,10 @@
                 taskListHTML += `</li>`;
             });
         }
-        taskListHTML += '</ul></div>';
-        card.innerHTML = contentHTML + taskListHTML;
-
-        // Her-koppel de event listener omdat de knop via innerHTML is toegevoegd
-        if (!dayData.rust) {
-            const wakeBtnElement = card.querySelector('.workout-modus-btn');
-            if (wakeBtnElement) {
-                wakeBtnElement.onclick = () => toggleWakeLock(wakeBtnElement);
-            }
-        }
-        
-        if(isCompleted) card.classList.add('completed');
+        taskListHTML += '</ul>';
+        const taskListDiv = document.createElement('div');
+        taskListDiv.innerHTML = taskListHTML;
+        card.appendChild(taskListDiv);
         
         const completeBtn = document.createElement('button');
         completeBtn.className = 'btn complete-button';
@@ -387,10 +385,7 @@
             updateButtonState(newState);
 
             if (newState && wakeLock) {
-                await wakeLock.release();
-                wakeLock = null;
-                const wakeBtnElement = card.querySelector('.workout-modus-btn');
-                if (wakeBtnElement) wakeBtnElement.textContent = "Start Workout Modus";
+                await toggleWakeLock(wakeBtn);
             }
         };
 
@@ -417,7 +412,13 @@
 
     function resetApp() {
       if (confirm("Weet je zeker dat je de hele challenge en je configuratie wilt wissen?")) {
-        localStorage.clear();
+        // AANGEPAST: Verwijder alleen data van deze app.
+        const savedConfig = JSON.parse(localStorage.getItem('wc_config') || '{}');
+        const duration = savedConfig.duration || 100; // Gebruik opgeslagen duur of een veilige fallback
+        for (let i = 1; i <= duration; i++) {
+            localStorage.removeItem(`wc_day_${i}`);
+        }
+        localStorage.removeItem('wc_config');
         location.href = location.pathname;
       }
     }
