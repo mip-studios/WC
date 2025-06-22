@@ -56,9 +56,10 @@
     input[type="text"], input[type="number"] { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; font-size: 1em; }
     .btn { display: inline-block; width: 100%; text-align:center; padding: 12px 16px; font-size: 1em; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; color: white; background-color: var(--button-primary-bg); text-decoration: none; }
     .btn:hover { background-color: var(--button-primary-hover-bg); }
-    .checkbox-group label { display: flex; align-items: center; margin-bottom: 10px; }
-    .checkbox-group input { margin-right: 10px; transform: scale(1.3); }
-    .radio-group label { margin-right: 15px; }
+    .checkbox-group label, .radio-group label { display: flex; align-items: center; margin-bottom: 10px; }
+    .checkbox-group input, .radio-group input { margin-right: 10px; transform: scale(1.3); }
+    .radio-group-vertical label { margin-bottom: 15px; }
+    .radio-group-vertical small { display: block; font-weight: normal; opacity: 0.8; margin-left: 28px; margin-top: -10px; }
     .progression-input-group { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; margin-bottom:10px;}
     .progression-input-group label { grid-column: 1 / -1; }
     .progression-input-group input { width: 80px; text-align: center; }
@@ -146,6 +147,15 @@
           <h3>Stel je Doelen in</h3>
           <p style="font-size:0.9em; opacity:0.7;">De app berekent een slimme opbouw voor je.</p>
           <div id="progression-inputs"></div>
+          <button id="progression-submit" class="btn">Volgende</button>
+      </div>
+      <div class="setup-step" id="style-step" style="display:none;">
+          <h3>Kies je Opbouw Stijl</h3>
+          <div class="form-group radio-group-vertical">
+              <label><input type="radio" name="progression-style" value="gemiddeld" checked> Gemiddeld<small>Een gebalanceerde S-curve opbouw.</small></label>
+              <label><input type="radio" name="progression-style" value="rustig"> Rustige Start<small>Langzaam beginnen, de grootste stappen komen later.</small></label>
+              <label><input type="radio" name="progression-style" value="snel"> Snelle Start<small>Direct een flinke stijging, vlakt af naar het einde.</small></label>
+          </div>
           <button id="finish-setup" class="btn">Start mijn Challenge!</button>
       </div>
   </div>
@@ -169,24 +179,22 @@
         allSteps.forEach(s => s.style.display = 'none');
         document.getElementById(stepId).style.display = 'block';
     }
-
+    
+    // --- SETUP WIZARD EVENT LISTENERS ---
     document.getElementById('name-submit').addEventListener('click', () => {
         const nameInput = document.getElementById('user-name');
         if (!nameInput.value.trim()) { alert('Vul alsjeblieft je naam in.'); return; }
         config.userName = nameInput.value.trim();
         showStep('duration-step');
     });
-
     document.getElementById('duration-submit').addEventListener('click', () => {
         config.duration = parseInt(document.getElementById('challenge-duration').value, 10) || 30;
         showStep('rest-day-step');
     });
-
     document.getElementById('rest-day-submit').addEventListener('click', () => {
         config.restDayInterval = parseInt(document.getElementById('rest-day-interval').value, 10);
         showStep('exercise-step');
     });
-    
     document.getElementById('add-exercise-btn').addEventListener('click', () => {
         const customInput = document.getElementById('custom-exercise');
         const name = customInput.value.trim();
@@ -199,7 +207,6 @@
             customInput.value = '';
         }
     });
-
     document.getElementById('exercise-submit').addEventListener('click', () => {
         const selected = document.querySelectorAll('#default-exercises input:checked');
         if (selected.length === 0) { alert('Kies minstens één oefening.'); return; }
@@ -207,7 +214,6 @@
         generateProgressionInputs();
         showStep('progression-step');
     });
-
     function generateProgressionInputs() {
         const container = document.getElementById('progression-inputs');
         container.innerHTML = '';
@@ -216,56 +222,54 @@
             const defaults = defaultValues[ex.name] || [ex.type === 'timed' ? 20 : 10, ex.type === 'timed' ? 120 : 50];
             const group = document.createElement('div');
             group.className = 'progression-input-group';
-            group.innerHTML = `
-                <label for="ex-start-${index}">${ex.name}</label>
+            group.innerHTML = `<label for="ex-start-${index}">${ex.name}</label>
                 <input type="number" id="ex-start-${index}" placeholder="Start" value="${defaults[0]}">
                 <span>&rarr;</span>
-                <input type="number" id="ex-end-${index}" placeholder="Einddoel" value="${defaults[1]}">
-            `;
+                <input type="number" id="ex-end-${index}" placeholder="Einddoel" value="${defaults[1]}">`;
             container.appendChild(group);
         });
     }
-    
-    document.getElementById('finish-setup').addEventListener('click', () => {
+    document.getElementById('progression-submit').addEventListener('click', () => {
         config.exercises.forEach((ex, index) => {
             ex.start = parseInt(document.getElementById(`ex-start-${index}`).value, 10) || 0;
             ex.end = parseInt(document.getElementById(`ex-end-${index}`).value, 10) || 0;
         });
+        showStep('style-step');
+    });
+    document.getElementById('finish-setup').addEventListener('click', () => {
+        config.progressionStyle = document.querySelector('input[name="progression-style"]:checked').value;
         localStorage.setItem('wc_config', JSON.stringify(config));
         startApp();
     });
 
-    // === NIEUW: Verbeterde Progressie & Rustdag Logica ===
-    function easeInQuad(t) {
-        return t * t;
-    }
+    // === PROGRESSIE & DATA GENERATIE ===
+    const easingFunctions = {
+        rustig: t => t * t, // easeInQuad
+        gemiddeld: t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2, // easeInOutQuad
+        snel: t => 1 - (1 - t) * (1 - t) // easeOutQuad
+    };
 
     function generateChallengeData() {
         challengeData = [];
         const restDays = new Set();
-        // AANGEPAST: Zorg dat de laatste dag nooit een rustdag is.
         if (config.restDayInterval > 0) {
             for (let i = config.restDayInterval; i < config.duration; i += config.restDayInterval) {
                 restDays.add(i);
             }
         }
-
         const totalWorkoutDays = config.duration - restDays.size;
         let workoutDayCounter = 0;
+        const easingFunc = easingFunctions[config.progressionStyle] || easingFunctions.gemiddeld;
 
         for (let i = 1; i <= config.duration; i++) {
             const isRest = restDays.has(i);
             const dayObj = { day: i, rust: isRest, tasks: [] };
-
             if (!isRest) {
                 config.exercises.forEach(ex => {
                     const progressFraction = totalWorkoutDays > 1 ? workoutDayCounter / (totalWorkoutDays - 1) : 1;
-                    const easedFraction = easeInQuad(progressFraction); // Gebruik de nieuwe ease-in curve
+                    const easedFraction = easingFunc(progressFraction);
                     const idealValue = ex.start + (ex.end - ex.start) * easedFraction;
-                    
-                    // AANGEPAST: Rond af op stappen van 5 voor plateaus en sprongen
                     const value = Math.round(idealValue / 5) * 5; 
-                    
                     dayObj.tasks.push({ name: ex.name, type: ex.type, value: value });
                 });
                 workoutDayCounter++;
@@ -274,6 +278,7 @@
         }
     }
 
+    // === APP-BREDE FUNCTIES ===
     async function toggleWakeLock(button) {
         if (wakeLock) {
             await wakeLock.release();
@@ -287,21 +292,29 @@
             } catch (e) { alert("Wake Lock wordt niet ondersteund."); }
         }
     }
-
     function startTimer(displayElement, seconds) {
         let time = seconds;
         displayElement.textContent = `⏳ ${time}s`;
         const interval = setInterval(() => {
             time--;
             displayElement.textContent = `⏳ ${time}s`;
-            if (time <= 0) {
-                clearInterval(interval);
-                displayElement.textContent = "✅ Klaar!";
-                document.getElementById("beep-sound").play();
-            }
+            if (time <= 0) { clearInterval(interval); displayElement.textContent = "✅ Klaar!"; document.getElementById("beep-sound").play(); }
         }, 1000);
     }
-    
+    function resetApp() {
+      if (confirm("Weet je zeker dat je de hele challenge en je configuratie wilt wissen?")) {
+        const savedConfigData = localStorage.getItem('wc_config');
+        if (savedConfigData) {
+            const savedConfig = JSON.parse(savedConfigData);
+            const duration = savedConfig.duration || 100;
+            for (let i = 1; i <= duration; i++) { localStorage.removeItem(`wc_day_${i}`); }
+        }
+        localStorage.removeItem('wc_config');
+        location.href = location.pathname;
+      }
+    }
+
+    // === VIEW RENDERING & NAVIGATIE ===
     function renderCalendar() {
         calendarView.innerHTML = '';
         challengeData.forEach(dayData => {
@@ -318,7 +331,6 @@
             calendarView.appendChild(dayLink);
         });
     }
-
     function renderDetailView(dayNumber) {
         const dayData = challengeData[dayNumber - 1];
         detailView.innerHTML = ''; 
@@ -366,15 +378,8 @@
         completeBtn.className = 'btn complete-button';
         
         const updateButtonState = (completed) => {
-            if (completed) {
-                card.classList.add('completed');
-                completeBtn.classList.add('done');
-                completeBtn.textContent = '✅ Voltooid!';
-            } else {
-                card.classList.remove('completed');
-                completeBtn.classList.remove('done');
-                completeBtn.textContent = 'Markeer als voltooid';
-            }
+            if (completed) { card.classList.add('completed'); completeBtn.classList.add('done'); completeBtn.textContent = '✅ Voltooid!';
+            } else { card.classList.remove('completed'); completeBtn.classList.remove('done'); completeBtn.textContent = 'Markeer als voltooid'; }
         };
 
         completeBtn.onclick = async () => {
@@ -384,45 +389,26 @@
             else localStorage.removeItem(`wc_day_${dayNumber}`);
             updateButtonState(newState);
 
-            if (newState && wakeLock) {
-                await toggleWakeLock(wakeBtn);
-            }
+            if (newState && wakeLock) { await toggleWakeLock(wakeBtn); }
         };
 
         updateButtonState(isCompleted);
         card.appendChild(completeBtn);
         detailView.appendChild(card);
     }
-
     function router() {
         const hash = location.hash;
         if (hash.startsWith('#day-')) {
             const dayNumber = parseInt(hash.substring(5), 10);
-            calendarView.style.display = 'none';
-            appControls.style.display = 'none';
-            detailView.style.display = 'block';
+            calendarView.style.display = 'none'; appControls.style.display = 'none'; detailView.style.display = 'block';
             renderDetailView(dayNumber);
         } else {
-            calendarView.style.display = 'grid';
-            appControls.style.display = 'block';
-            detailView.style.display = 'none';
+            calendarView.style.display = 'grid'; appControls.style.display = 'block'; detailView.style.display = 'none';
             renderCalendar();
         }
     }
 
-    function resetApp() {
-      if (confirm("Weet je zeker dat je de hele challenge en je configuratie wilt wissen?")) {
-        // AANGEPAST: Verwijder alleen data van deze app.
-        const savedConfig = JSON.parse(localStorage.getItem('wc_config') || '{}');
-        const duration = savedConfig.duration || 100; // Gebruik opgeslagen duur of een veilige fallback
-        for (let i = 1; i <= duration; i++) {
-            localStorage.removeItem(`wc_day_${i}`);
-        }
-        localStorage.removeItem('wc_config');
-        location.href = location.pathname;
-      }
-    }
-
+    // === INITIALISATIE ===
     function startApp() {
         setupContainer.style.display = 'none';
         appContainer.style.display = 'block';
@@ -432,7 +418,6 @@
         window.addEventListener('hashchange', router);
         router();
     }
-
     function init() {
         const savedConfig = localStorage.getItem('wc_config');
         if (savedConfig) {
