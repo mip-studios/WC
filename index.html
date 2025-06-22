@@ -193,23 +193,10 @@
     let challengeData = [];
     let wakeLock = null;
 
-    // === NIEUW: Complimenten Data ===
     const firstDayCompliment = "De eerste stap is gezet, {{name}}! Dit is het begin van iets geweldigs.";
-    const workoutCompliments = [
-      "Kijk jou gaan! Die inzet is bewonderenswaardig.", "Jij bent een machine! 🔥", "Spieren van staal in de maak. 💪",
-      "Ga zo door, {{name}}! De resultaten zullen volgen.", "Zelfs je spiegel is onder de indruk. 😎", "Wat een doorzettingsvermogen!",
-      "Je bent sterker dan je denkt. Deze workout was het bewijs.", "Elke rep telt, en jij maakt ze af!", "Je motivatie is aanstekelijk!",
-      "Dit is hoe kampioenen trainen, {{name}}.", "Je hebt de 'ik kan dit niet' fase officieel verlaten.", "Petje af voor deze discipline!",
-      "Vandaag weer een stap dichter bij je doel.", "Fenomenaal werk, {{name}}!", "Die energie! Kunnen we die op fles verkopen?",
-      "Je lichaam zal je dankbaar zijn.", "Consistentie is de sleutel, en jij hebt hem gevonden.", "Je bent een inspiratie!",
-      "Niet te stoppen, dat ben jij!", "Hoppa! Weer een dag geknald.", "De bank is jaloers op je matje.",
-      "Gemaakt voor het zware werk. Respect, {{name}}!", "Voel je die vooruitgang al?", "Alsof het niks is. Klasse!",
-      "BAM! In de boeken.", "Je bent een levend voorbeeld van wilskracht.", "Elke druppel zweet is een medaille.",
-      "Morgen weer een dag? Jij kan niet wachten!", "Je hebt dit. Einde discussie.", "Jouw toewijding is van een ander niveau."
-    ];
+    const workoutCompliments = [ "Kijk jou gaan! Die inzet is bewonderenswaardig.", "Jij bent een machine! 🔥", "Spieren van staal in de maak. 💪", "Ga zo door, {{name}}! De resultaten zullen volgen.", "Zelfs je spiegel is onder de indruk. 😎", "Wat een doorzettingsvermogen!", "Je bent sterker dan je denkt. Deze workout was het bewijs.", "Elke rep telt, en jij maakt ze af!", "Je motivatie is aanstekelijk!", "Dit is hoe kampioenen trainen, {{name}}.", "Je hebt de 'ik kan dit niet' fase officieel verlaten.", "Petje af voor deze discipline!", "Vandaag weer een stap dichter bij je doel.", "Fenomenaal werk, {{name}}!", "Die energie! Kunnen we die op fles verkopen?", "Je lichaam zal je dankbaar zijn.", "Consistentie is de sleutel, en jij hebt hem gevonden.", "Je bent een inspiratie!", "Niet te stoppen, dat ben jij!", "Hoppa! Weer een dag geknald.", "De bank is jaloers op je matje.", "Gemaakt voor het zware werk. Respect, {{name}}!", "Voel je die vooruitgang al?", "Alsof het niks is. Klasse!", "BAM! In de boeken.", "Je bent een levend voorbeeld van wilskracht.", "Elke druppel zweet is een medaille.", "Morgen weer een dag? Jij kan niet wachten!", "Je hebt dit. Einde discussie.", "Jouw toewijding is van een ander niveau." ];
     const restDayCompliments = [ "Goed dat je rust pakt, {{name}}. Herstel is key!", "Een rustdag is een slimme zet. Morgen kom je sterker terug!", "Vandaag even opladen. Je hebt het verdiend!", "Discipline is ook weten wanneer je moet rusten. Perfecte timing.", "Geniet van deze pauze, {{name}}. Je consistentie is indrukwekkend!" ];
 
-    // DOM Elementen
     const appContainer = document.getElementById('app-container');
     const setupContainer = document.getElementById('setup-container');
     const allSteps = document.querySelectorAll('.setup-step');
@@ -217,71 +204,23 @@
     const detailView = document.getElementById('detail-view');
     const appControls = document.getElementById('app-controls');
 
-    // Functie om de complimentenlijst te shufflen
-    function shuffle(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
-        return array;
-    }
-
+    function shuffle(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } return array; }
     function showStep(stepId) { allSteps.forEach(s => s.style.display = 'none'); document.getElementById(stepId).style.display = 'block'; }
     
-    // SETUP WIZARD EVENT LISTENERS
+    // SETUP WIZARD
     document.getElementById('name-submit').addEventListener('click', () => { config.userName = document.getElementById('user-name').value.trim() || 'Anoniem'; showStep('duration-step'); });
     document.getElementById('duration-submit').addEventListener('click', () => { config.duration = parseInt(document.getElementById('challenge-duration').value, 10) || 30; showStep('rest-day-step'); });
     document.getElementById('rest-day-submit').addEventListener('click', () => { config.restDayInterval = parseInt(document.getElementById('rest-day-interval').value, 10); showStep('exercise-step'); });
-    document.getElementById('add-exercise-btn').addEventListener('click', () => {
-        const name = document.getElementById('custom-exercise').value.trim();
-        const type = document.querySelector('input[name="custom-type"]:checked').value;
-        if (name) {
-            const label = document.createElement('label');
-            label.innerHTML = `<input type="checkbox" data-type="${type}" value="${name}" checked> ${name}`;
-            document.getElementById('default-exercises').appendChild(label);
-            document.getElementById('custom-exercise').value = '';
-        }
-    });
-    document.getElementById('exercise-submit').addEventListener('click', () => {
-        const selected = document.querySelectorAll('#default-exercises input:checked');
-        if (selected.length === 0) { alert('Kies minstens één oefening.'); return; }
-        config.exercises = Array.from(selected).map(cb => ({ name: cb.value, type: cb.dataset.type, start: 0, end: 0 }));
-        generateProgressionInputs();
-        showStep('progression-step');
-    });
-    function generateProgressionInputs() {
-        const container = document.getElementById('progression-inputs'); container.innerHTML = '';
-        const defaultValues = { 'Plank': [20, 180], 'Crunches': [15, 135], 'Leg Raises': [5, 65], 'Squats': [30, 90] };
-        config.exercises.forEach((ex, index) => {
-            const defaults = defaultValues[ex.name] || [ex.type === 'timed' ? 20 : 10, ex.type === 'timed' ? 120 : 50];
-            const group = document.createElement('div'); group.className = 'progression-input-group';
-            group.innerHTML = `<label for="ex-start-${index}">${ex.name}</label>
-                <input type="number" id="ex-start-${index}" value="${defaults[0]}"><input type="number" id="ex-end-${index}" value="${defaults[1]}">`;
-            container.appendChild(group);
-        });
-    }
-    document.getElementById('progression-submit').addEventListener('click', () => {
-        config.exercises.forEach((ex, index) => {
-            ex.start = parseInt(document.getElementById(`ex-start-${index}`).value, 10) || 0;
-            ex.end = parseInt(document.getElementById(`ex-end-${index}`).value, 10) || 0;
-        });
-        showStep('style-step');
-    });
-    document.getElementById('finish-setup').addEventListener('click', () => {
-        config.progressionStyle = document.querySelector('input[name="progression-style"]:checked').value;
-        localStorage.setItem('wc_config', JSON.stringify(config));
-        // NIEUW: Shuffled complimentenlijst opslaan
-        localStorage.setItem('wc_compliments', JSON.stringify(shuffle([...workoutCompliments])));
-        startApp();
-    });
+    document.getElementById('add-exercise-btn').addEventListener('click', () => { const name = document.getElementById('custom-exercise').value.trim(); const type = document.querySelector('input[name="custom-type"]:checked').value; if (name) { const label = document.createElement('label'); label.innerHTML = `<input type="checkbox" data-type="${type}" value="${name}" checked> ${name}`; document.getElementById('default-exercises').appendChild(label); document.getElementById('custom-exercise').value = ''; } });
+    document.getElementById('exercise-submit').addEventListener('click', () => { const selected = document.querySelectorAll('#default-exercises input:checked'); if (selected.length === 0) { alert('Kies minstens één oefening.'); return; } config.exercises = Array.from(selected).map(cb => ({ name: cb.value, type: cb.dataset.type, start: 0, end: 0 })); generateProgressionInputs(); showStep('progression-step'); });
+    function generateProgressionInputs() { const container = document.getElementById('progression-inputs'); container.innerHTML = ''; const defaultValues = { 'Plank': [20, 180], 'Crunches': [15, 135], 'Leg Raises': [5, 65], 'Squats': [30, 90] }; config.exercises.forEach((ex, index) => { const defaults = defaultValues[ex.name] || [ex.type === 'timed' ? 20 : 10, ex.type === 'timed' ? 120 : 50]; const group = document.createElement('div'); group.className = 'progression-input-group'; group.innerHTML = `<label for="ex-start-${index}">${ex.name}</label><input type="number" id="ex-start-${index}" value="${defaults[0]}"><span>&rarr;</span><input type="number" id="ex-end-${index}" value="${defaults[1]}">`; container.appendChild(group); }); }
+    document.getElementById('progression-submit').addEventListener('click', () => { config.exercises.forEach((ex, index) => { ex.start = parseInt(document.getElementById(`ex-start-${index}`).value, 10) || 0; ex.end = parseInt(document.getElementById(`ex-end-${index}`).value, 10) || 0; }); showStep('style-step'); });
+    document.getElementById('finish-setup').addEventListener('click', () => { config.progressionStyle = document.querySelector('input[name="progression-style"]:checked').value; localStorage.setItem('wc_config', JSON.stringify(config)); localStorage.setItem('wc_compliments', JSON.stringify(shuffle([...workoutCompliments]))); startApp(); });
 
-    // PROGRESSIE & DATA GENERATIE
-    const easingFunctions = {
-        rustig: t => t * t, gemiddeld: t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2, snel: t => 1 - (1 - t) * (1 - t)
-    };
+    // DATA & PROGRESSIE
+    const easingFunctions = { rustig: t => t * t, gemiddeld: t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2, snel: t => 1 - (1 - t) * (1 - t) };
     function generateChallengeData() {
-        challengeData = [];
-        const restDays = new Set();
+        challengeData = []; const restDays = new Set();
         if (config.restDayInterval > 0) { for (let i = config.restDayInterval; i < config.duration; i += config.restDayInterval) { restDays.add(i); } }
         const totalWorkoutDays = config.duration - restDays.size; let workoutDayCounter = 0;
         const easingFunc = easingFunctions[config.progressionStyle] || easingFunctions.gemiddeld;
@@ -301,68 +240,60 @@
         }
     }
 
-    // APP-BREDE FUNCTIES
-    async function toggleWakeLock(button) { if (wakeLock) { await wakeLock.release(); wakeLock = null; if(button) button.textContent = "Start Workout Modus"; } else { try { wakeLock = await navigator.wakeLock.request('screen'); if(button) button.textContent = "✅ Workout Modus Actief"; wakeLock.addEventListener('release', () => { wakeLock = null; if(button) button.textContent = "Start Workout Modus"; }); } catch (e) { alert("Wake Lock wordt niet ondersteund."); } } }
+    // APP FUNCTIES
+    async function toggleWakeLock(button) {
+        if (wakeLock) {
+            await wakeLock.release(); wakeLock = null;
+            if (button) { button.textContent = "Start Workout Modus"; button.style.backgroundColor = ''; }
+        } else {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                if (button) { button.textContent = "✅ Workout Modus Actief"; button.style.backgroundColor = '#28a745'; }
+                wakeLock.addEventListener('release', () => { wakeLock = null; if(button) { button.textContent = "Start Workout Modus"; button.style.backgroundColor = ''; } });
+            } catch (e) { alert("Wake Lock wordt niet ondersteund."); }
+        }
+    }
     function startTimer(displayElement, seconds) { let time = seconds; displayElement.textContent = `⏳ ${time}s`; const interval = setInterval(() => { time--; displayElement.textContent = `⏳ ${time}s`; if (time <= 0) { clearInterval(interval); displayElement.textContent = "✅ Klaar!"; document.getElementById("beep-sound").play(); } }, 1000); }
     function resetApp() {
       if (confirm("Weet je zeker dat je de hele challenge en je configuratie wilt wissen?")) {
         const savedConfigData = localStorage.getItem('wc_config');
-        if (savedConfigData) {
-            try {
-                const duration = JSON.parse(savedConfigData).duration || 100;
-                for (let i = 1; i <= duration; i++) { localStorage.removeItem(`wc_day_${i}`); }
-            } catch (e) {}
-        }
-        localStorage.removeItem('wc_config');
-        localStorage.removeItem('wc_compliments'); // Verwijder ook de complimentenlijst
+        if (savedConfigData) { try { const duration = JSON.parse(savedConfigData).duration || 100; for (let i = 1; i <= duration; i++) { localStorage.removeItem(`wc_day_${i}`); } } catch (e) {} }
+        localStorage.removeItem('wc_config'); localStorage.removeItem('wc_compliments');
         location.href = location.pathname;
       }
     }
-    
-    // NIEUW: Functie om complimenten op te halen
     function getComplimentForDay(dayNumber) {
+        if (dayNumber === config.duration) {
+            return `<strong>CHALLENGE VOLTOOID!</strong><br> Wat een absolute eindbaas! ${config.duration} dagen lang discipline en zweet. Je hebt het gehaald, {{name}}. Wees supertrots op jezelf! 🎉`;
+        }
         const dayData = challengeData[dayNumber - 1];
-        if (dayData.rust) {
-            return restDayCompliments[Math.floor(Math.random() * restDayCompliments.length)];
-        }
-        
+        if (dayData.rust) { return restDayCompliments[Math.floor(Math.random() * restDayCompliments.length)]; }
         const workoutDayIndex = challengeData.slice(0, dayNumber).filter(d => !d.rust).length - 1;
-
-        if (workoutDayIndex === 0) {
-            return firstDayCompliment;
-        }
-
+        if (workoutDayIndex === 0) { return firstDayCompliment; }
         const complimentOrder = JSON.parse(localStorage.getItem('wc_compliments'));
-        if (!complimentOrder) return "Goed bezig!"; // Fallback
-
-        // Gebruik de geshuffelde lijst, -1 omdat de eerste dag apart wordt behandeld
+        if (!complimentOrder) return "Goed bezig!";
         const index = (workoutDayIndex - 1) % complimentOrder.length;
         return complimentOrder[index];
     }
-
 
     // VIEW RENDERING & NAVIGATIE
     function renderCalendar() {
         calendarView.innerHTML = '';
         challengeData.forEach(dayData => {
             const dayLink = document.createElement('a'); dayLink.href = `#day-${dayData.day}`; dayLink.className = 'calendar-day';
-            if (dayData.rust) {
-                dayLink.classList.add('rest-day');
-                dayLink.innerHTML = `<span>${dayData.day}</span><span style="font-size:0.5em;">Rust</span>`;
-            } else { dayLink.textContent = dayData.day; }
+            if (dayData.rust) { dayLink.classList.add('rest-day'); dayLink.innerHTML = `<span>${dayData.day}</span><span style="font-size:0.5em;">Rust</span>`; } 
+            else { dayLink.textContent = dayData.day; }
             if (localStorage.getItem(`wc_day_${dayData.day}`) === 'true') dayLink.classList.add('completed');
             calendarView.appendChild(dayLink);
         });
     }
     function renderDetailView(dayNumber) {
         const dayData = challengeData[dayNumber - 1]; detailView.innerHTML = ''; 
-
         const backButton = document.createElement('a'); backButton.href = '#'; backButton.className = 'back-button'; backButton.innerHTML = '← Terug naar overzicht'; detailView.appendChild(backButton);
         const card = document.createElement('div'); card.className = 'day-detail-card';
-        const isCompleted = localStorage.getItem(`wc_day_${dayNumber}`) === 'true';
-        if(isCompleted) card.classList.add('completed');
-
+        const isCompleted = localStorage.getItem(`wc_day_${dayNumber}`) === 'true'; if(isCompleted) card.classList.add('completed');
         const contentDiv = document.createElement('div'); contentDiv.className = 'day-content'; contentDiv.innerHTML = `<strong>Dag ${dayNumber}</strong>`; card.appendChild(contentDiv);
+        
         const wakeBtn = document.createElement('button');
         if (!dayData.rust) {
             wakeBtn.className = 'btn workout-modus-btn'; wakeBtn.textContent = "Start Workout Modus";
@@ -374,9 +305,7 @@
         else {
             dayData.tasks.forEach((task, index) => {
                 taskListHTML += `<li>${task.name}: <strong>${task.value} ${task.type === 'timed' ? 'sec' : 'reps'}</strong>`;
-                if (task.type === 'timed') {
-                    taskListHTML += ` <button class="timer-button" onclick="startTimer(document.getElementById('timer-span-${index}'), ${task.value})">Start</button><span class="timer" id="timer-span-${index}"></span>`;
-                }
+                if (task.type === 'timed') { taskListHTML += ` <button class="timer-button" onclick="startTimer(document.getElementById('timer-span-${index}'), ${task.value})">Start</button><span class="timer" id="timer-span-${index}"></span>`; }
                 taskListHTML += `</li>`;
             });
         }
@@ -384,15 +313,13 @@
         const taskListDiv = document.createElement('div'); taskListDiv.innerHTML = taskListHTML; card.appendChild(taskListDiv);
         
         const complimentDiv = document.createElement('div'); complimentDiv.className = 'compliment'; card.appendChild(complimentDiv);
-
         const completeBtn = document.createElement('button'); completeBtn.className = 'btn complete-button';
         
         const updateButtonState = (completed) => {
             if (completed) { 
                 card.classList.add('completed'); completeBtn.classList.add('done'); completeBtn.textContent = '✅ Voltooid!';
                 const complimentText = getComplimentForDay(dayNumber);
-                complimentDiv.innerHTML = complimentText.replace(/{{name}}/g, config.userName);
-                complimentDiv.style.display = 'block';
+                complimentDiv.innerHTML = complimentText.replace(/{{name}}/g, config.userName); complimentDiv.style.display = 'block';
             } else { 
                 card.classList.remove('completed'); completeBtn.classList.remove('done'); completeBtn.textContent = 'Markeer als voltooid'; 
                 complimentDiv.style.display = 'none';
@@ -407,8 +334,7 @@
         };
 
         updateButtonState(isCompleted);
-        card.appendChild(completeBtn);
-        detailView.appendChild(card);
+        card.appendChild(completeBtn); detailView.appendChild(card);
     }
     function router() {
         const hash = location.hash;
@@ -424,26 +350,17 @@
     
     // INITIALISATIE
     function startApp() {
-        setupContainer.style.display = 'none';
-        appContainer.style.display = 'block';
+        setupContainer.style.display = 'none'; appContainer.style.display = 'block';
         document.querySelector('.welcome-message').textContent = `Zet 'm op, ${config.userName}!`;
         generateChallengeData();
         document.getElementById('reset-btn').addEventListener('click', resetApp);
-        window.addEventListener('hashchange', router);
-        router();
+        window.addEventListener('hashchange', router); router();
     }
     function init() {
         const savedConfig = localStorage.getItem('wc_config');
-        if (savedConfig) {
-            config = JSON.parse(savedConfig);
-            startApp();
-        } else {
-            appContainer.style.display = 'none';
-            setupContainer.style.display = 'block';
-            showStep('name-step');
-        }
+        if (savedConfig) { config = JSON.parse(savedConfig); startApp();
+        } else { appContainer.style.display = 'none'; setupContainer.style.display = 'block'; showStep('name-step'); }
     }
-
     init();
   </script>
 </body>
