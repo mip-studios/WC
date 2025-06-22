@@ -61,7 +61,7 @@
     .radio-group label { margin-right: 15px; }
     .progression-input-group { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; margin-bottom:10px;}
     .progression-input-group label { grid-column: 1 / -1; }
-    .progression-input-group input { width: 70px; }
+    .progression-input-group input { width: 80px; text-align: center; }
 
     /* App View Styling */
     .app-controls { text-align: center; margin-top: 20px; }
@@ -79,7 +79,7 @@
     .day-detail-card { background: var(--card-bg-color); border-radius: 12px; padding: 15px 20px; margin: 10px auto; box-shadow: var(--card-shadow); max-width: 600px; }
     .day-detail-card.completed { background-color: #d4edda; }
     .day-content { line-height: 1.6; }
-    .day-content > strong { font-size: 1.1em; }
+    .day-content > strong { font-size: 1.2em; display:block; text-align:center; margin-bottom: 10px;}
     .day-content ul { list-style: none; padding-left: 0; }
     .day-content li { margin-bottom: 10px; font-size: 1.1em; }
     .back-button { display: block; max-width: 600px; margin: 20px auto 10px; text-align: center; color: var(--text-color); text-decoration: none; font-weight: bold; padding: 10px; background: var(--card-bg-color); border-radius: 8px; box-shadow: var(--card-shadow); }
@@ -115,20 +115,17 @@
           <div class="form-group"><label for="user-name">Wat is je naam?</label><input type="text" id="user-name" placeholder="Jouw naam"></div>
           <button id="name-submit" class="btn">Volgende</button>
       </div>
-
       <div class="setup-step" id="duration-step" style="display: none;">
           <h3>Challenge Duur</h3>
           <div class="form-group"><label for="challenge-duration">Hoeveel dagen duurt je challenge?</label><input type="number" id="challenge-duration" value="30" min="1"></div>
           <button id="duration-submit" class="btn">Volgende</button>
       </div>
-      
       <div class="setup-step" id="rest-day-step" style="display: none;">
           <h3>Rustdagen</h3>
           <div class="form-group"><label for="rest-day-interval">Neem elke hoeveelste dag een rustdag?</label><input type="number" id="rest-day-interval" value="5" min="0"></div>
           <p style="font-size:0.9em; opacity:0.7;">(Zet op 0 voor geen automatische rustdagen)</p>
           <button id="rest-day-submit" class="btn">Volgende</button>
       </div>
-
       <div class="setup-step" id="exercise-step" style="display: none;">
           <h3>Kies je Oefeningen</h3>
           <div class="form-group checkbox-group" id="default-exercises">
@@ -140,16 +137,14 @@
           <hr>
           <div class="form-group">
               <label for="custom-exercise">Voeg een eigen oefening toe:</label><input type="text" id="custom-exercise" placeholder="Bijv. Push-ups">
-              <div class="form-group radio-group" style="margin-top:10px;">
-                  <label><input type="radio" name="custom-type" value="reps" checked> Aantal</label><label><input type="radio" name="custom-type" value="timed"> Seconden</label>
-              </div>
+              <div class="form-group radio-group" style="margin-top:10px;"><label><input type="radio" name="custom-type" value="reps" checked> Aantal</label><label><input type="radio" name="custom-type" value="timed"> Seconden</label></div>
               <button id="add-exercise-btn" class="btn" style="width: auto; padding: 8px 12px; margin-top: 5px;">Voeg toe</button>
           </div>
           <button id="exercise-submit" class="btn">Volgende</button>
       </div>
-
       <div class="setup-step" id="progression-step" style="display:none;">
           <h3>Stel je Doelen in</h3>
+          <p style="font-size:0.9em; opacity:0.7;">De app berekent een slimme opbouw voor je.</p>
           <div id="progression-inputs"></div>
           <button id="finish-setup" class="btn">Start mijn Challenge!</button>
       </div>
@@ -216,14 +211,17 @@
     function generateProgressionInputs() {
         const container = document.getElementById('progression-inputs');
         container.innerHTML = '';
+        const defaultValues = { 'Plank': [20, 180], 'Crunches': [15, 135], 'Leg Raises': [5, 65], 'Squats': [30, 90] };
         config.exercises.forEach((ex, index) => {
+            const defaults = defaultValues[ex.name] || [ex.type === 'timed' ? 20 : 10, ex.type === 'timed' ? 120 : 50];
             const unit = ex.type === 'timed' ? 'seconden' : 'aantal';
             const group = document.createElement('div');
             group.className = 'progression-input-group';
             group.innerHTML = `
                 <label for="ex-start-${index}">${ex.name}</label>
-                <input type="number" id="ex-start-${index}" placeholder="Start ${unit}" value="${ex.type === 'timed' ? 20 : 10}">
-                <input type="number" id="ex-end-${index}" placeholder="Einddoel ${unit}" value="${ex.type === 'timed' ? 120 : 50}">
+                <input type="number" id="ex-start-${index}" placeholder="Start" value="${defaults[0]}">
+                <span>&rarr;</span>
+                <input type="number" id="ex-end-${index}" placeholder="Einddoel" value="${defaults[1]}">
             `;
             container.appendChild(group);
         });
@@ -238,20 +236,32 @@
         startApp();
     });
 
+    // === NIEUW: Slimme Progressie Logica ===
+    function easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+
     function generateChallengeData() {
         challengeData = [];
-        const totalWorkoutDays = config.duration - (config.restDayInterval > 0 ? Math.floor(config.duration / config.restDayInterval) : 0);
+        const restDays = new Set();
+        if (config.restDayInterval > 0) {
+            for (let i = config.restDayInterval; i < config.duration; i += config.restDayInterval) {
+                restDays.add(i);
+            }
+        }
+
+        const totalWorkoutDays = config.duration - restDays.size;
         let workoutDayCounter = 0;
 
         for (let i = 1; i <= config.duration; i++) {
-            const isRest = config.restDayInterval > 0 && i % config.restDayInterval === 0;
+            const isRest = restDays.has(i);
             const dayObj = { day: i, rust: isRest, tasks: [] };
 
             if (!isRest) {
                 config.exercises.forEach(ex => {
-                    const totalIncrease = ex.end - ex.start;
-                    const increasePerDay = totalWorkoutDays > 1 ? totalIncrease / (totalWorkoutDays - 1) : 0;
-                    const value = Math.round(ex.start + (workoutDayCounter * increasePerDay));
+                    const progressFraction = totalWorkoutDays > 1 ? workoutDayCounter / (totalWorkoutDays - 1) : 1;
+                    const easedFraction = easeInOutCubic(progressFraction);
+                    const value = Math.round(ex.start + (ex.end - ex.start) * easedFraction);
                     dayObj.tasks.push({ name: ex.name, type: ex.type, value: value });
                 });
                 workoutDayCounter++;
@@ -320,13 +330,13 @@
         const isCompleted = localStorage.getItem(`wc_day_${dayNumber}`) === 'true';
 
         let contentHTML = `<div class="day-content"><strong>Dag ${dayNumber}</strong>`;
-        const wakeBtn = document.createElement('button'); // Creëer knop als element
+        const wakeBtn = document.createElement('button');
 
         if (!dayData.rust) {
             wakeBtn.className = 'btn workout-modus-btn';
             wakeBtn.textContent = "Start Workout Modus";
             wakeBtn.onclick = () => toggleWakeLock(wakeBtn);
-            card.appendChild(wakeBtn); // Voeg knop bovenaan toe
+            contentHTML += wakeBtn.outerHTML; // Voeg knop bovenaan toe als HTML string
         }
 
         let taskListHTML = '<ul>';
@@ -341,13 +351,17 @@
                 taskListHTML += `</li>`;
             });
         }
-        taskListHTML += '</ul>';
-        contentHTML += taskListHTML + '</div>';
+        taskListHTML += '</ul></div>';
+        card.innerHTML = contentHTML + taskListHTML;
 
-        const contentDiv = document.createElement('div');
-        contentDiv.innerHTML = contentHTML;
-        card.appendChild(contentDiv);
-
+        // Her-koppel de event listener omdat de knop via innerHTML is toegevoegd
+        if (!dayData.rust) {
+            const wakeBtnElement = card.querySelector('.workout-modus-btn');
+            if (wakeBtnElement) {
+                wakeBtnElement.onclick = () => toggleWakeLock(wakeBtnElement);
+            }
+        }
+        
         if(isCompleted) card.classList.add('completed');
         
         const completeBtn = document.createElement('button');
@@ -372,8 +386,11 @@
             else localStorage.removeItem(`wc_day_${dayNumber}`);
             updateButtonState(newState);
 
-            if (newState && wakeLock) { // Als voltooid wordt en wakeLock is actief
-                await toggleWakeLock(wakeBtn);
+            if (newState && wakeLock) {
+                await wakeLock.release();
+                wakeLock = null;
+                const wakeBtnElement = card.querySelector('.workout-modus-btn');
+                if (wakeBtnElement) wakeBtnElement.textContent = "Start Workout Modus";
             }
         };
 
