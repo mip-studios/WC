@@ -44,6 +44,8 @@
     h1 { font-size: 1.6em; margin: 5px 0; }
     h2.welcome-message { font-size: 1.2em; font-weight: normal; margin: 0 0 20px; }
     footer { text-align: center; margin: 30px 0 20px; font-size: 0.8em; color: var(--text-color); opacity: 0.6; }
+    .intro-text { text-align: center; font-size: 0.95em; max-width: 600px; margin: 0 auto 20px; opacity: 0.8; }
+    .warning { text-align: center; font-size: 0.95em; color: #b33; margin-bottom: 5px; font-style: italic; }
     
     /* Setup Wizard Styling */
     .setup-container { padding: 20px; max-width: 500px; margin: auto; }
@@ -57,7 +59,14 @@
     .checkbox-group label { display: flex; align-items: center; margin-bottom: 10px; }
     .checkbox-group input { margin-right: 10px; transform: scale(1.3); }
     #custom-exercise-list { margin-top: 10px; font-style: italic; }
+    .radio-group label { margin-right: 15px; }
 
+    /* App View Styling */
+    .app-controls { text-align: center; margin-top: 20px; }
+    .button-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+    .feedback-button { background-color: var(--button-primary-bg); }
+    .reset-button { background-color: var(--button-danger-bg); }
+    
     /* Kalender Styling */
     #calendar-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 10px; padding: 10px; max-width: 500px; margin: 20px auto; }
     .calendar-day { display: flex; justify-content: center; align-items: center; background: var(--card-bg-color); color: var(--text-color); text-decoration: none; font-weight: bold; font-size: 1.5em; height: 60px; border-radius: 10px; box-shadow: var(--card-shadow); }
@@ -68,14 +77,21 @@
     .day-detail-card.completed { background-color: #d4edda; }
     .day-content { line-height: 1.6; }
     .day-content > strong { font-size: 1.1em; }
+    .day-content ul { list-style: none; padding-left: 0; }
+    .day-content li { margin-bottom: 10px; }
     .back-button { display: block; max-width: 600px; margin: 20px auto 10px; text-align: center; color: var(--text-color); text-decoration: none; font-weight: bold; padding: 10px; background: var(--card-bg-color); border-radius: 8px; box-shadow: var(--card-shadow); }
-    .complete-button { background-color: var(--button-tertiary-bg); color: white; }
+    .complete-button { background-color: var(--button-tertiary-bg); color: white; margin-top: 15px; }
     .complete-button.done { background-color: #28a745; }
-    .reset-button { background-color: var(--button-danger-bg); margin-top: 20px; }
+    .workout-modus-btn { background-color: #fff799; color: #333; margin-top: 15px; }
+    .timer-button { background-color: var(--button-primary-bg); color: white; padding: 5px 10px; font-size: 0.8em; border-radius: 6px; cursor: pointer; margin-left: 10px; border: none; }
+    .timer { display: inline-block; margin-left: 10px; font-weight: bold; }
   </style>
 </head>
 <body>
   <h1>WC - Workout Challenge</h1>
+
+  <div class="warning">⚠️ Dit is een persoonlijke tool – niet bedoeld als medisch advies.</div>
+  <p class="intro-text">Stel je eigen workout challenge samen en hou je voortgang bij!</p>
   
   <div id="app-container" style="display: none;">
       <h2 class="welcome-message"></h2>
@@ -83,8 +99,11 @@
           <div id="calendar-view"></div>
           <div id="detail-view" style="display: none;"></div>
       </main>
-      <div style="text-align: center;">
-        <button id="reset-btn" class="btn reset-button">Reset Challenge</button>
+      <div class="app-controls" id="app-controls">
+          <div class="button-group">
+            <a href="mailto:post.master@me.com?subject=Feedback%20voor%20WC%20App" class="btn feedback-button">Geef Feedback</a>
+            <button id="reset-btn" class="btn reset-button">Reset Challenge</button>
+          </div>
       </div>
   </div>
 
@@ -110,15 +129,19 @@
       <div class="setup-step" id="exercise-step" style="display: none;">
           <h3>Kies je Oefeningen</h3>
           <div class="form-group checkbox-group" id="default-exercises">
-              <label><input type="checkbox" name="exercise" value="Plank"> Plank</label>
-              <label><input type="checkbox" name="exercise" value="Crunches"> Crunches</label>
-              <label><input type="checkbox" name="exercise" value="Leg Raises"> Leg Raises</label>
-              <label><input type="checkbox" name="exercise" value="Squats"> Squats</label>
+              <label><input type="checkbox" data-type="timed" value="Plank"> Plank</label>
+              <label><input type="checkbox" data-type="reps" value="Crunches"> Crunches</label>
+              <label><input type="checkbox" data-type="reps" value="Leg Raises"> Leg Raises</label>
+              <label><input type="checkbox" data-type="reps" value="Squats"> Squats</label>
           </div>
           <hr>
           <div class="form-group">
               <label for="custom-exercise">Voeg een eigen oefening toe:</label>
               <input type="text" id="custom-exercise" placeholder="Bijv. Push-ups">
+              <div class="form-group radio-group" style="margin-top:10px;">
+                  <label><input type="radio" name="custom-type" value="reps" checked> Aantal</label>
+                  <label><input type="radio" name="custom-type" value="timed"> Seconden</label>
+              </div>
               <button id="add-exercise-btn" class="btn" style="width: auto; padding: 8px 12px; margin-top: 5px;">Voeg toe</button>
           </div>
           <div id="custom-exercise-list"></div>
@@ -127,28 +150,21 @@
   </div>
   
   <footer>Mip Studio’s • 2025</footer>
+  <audio id="beep-sound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
 
   <script>
-    // App state en configuratie object
-    let config = {
-        userName: '',
-        duration: 30,
-        exercises: []
-    };
+    let config = { userName: '', duration: 30, exercises: [] };
 
-    // DOM Elementen
     const appContainer = document.getElementById('app-container');
     const setupContainer = document.getElementById('setup-container');
-
     const nameStep = document.getElementById('name-step');
     const durationStep = document.getElementById('duration-step');
     const exerciseStep = document.getElementById('exercise-step');
-    
     const calendarView = document.getElementById('calendar-view');
     const detailView = document.getElementById('detail-view');
+    const appControls = document.getElementById('app-controls');
 
     // === SETUP WIZARD LOGICA ===
-
     function showStep(stepElement) {
         [nameStep, durationStep, exerciseStep].forEach(s => s.style.display = 'none');
         stepElement.style.display = 'block';
@@ -156,10 +172,7 @@
 
     document.getElementById('name-submit').addEventListener('click', () => {
         const nameInput = document.getElementById('user-name');
-        if (nameInput.value.trim() === '') {
-            alert('Vul alsjeblieft je naam in.');
-            return;
-        }
+        if (nameInput.value.trim() === '') { alert('Vul alsjeblieft je naam in.'); return; }
         config.userName = nameInput.value.trim();
         showStep(durationStep);
     });
@@ -173,33 +186,59 @@
     document.getElementById('add-exercise-btn').addEventListener('click', () => {
         const customInput = document.getElementById('custom-exercise');
         const customExerciseName = customInput.value.trim();
+        const type = document.querySelector('input[name="custom-type"]:checked').value;
         if (customExerciseName) {
-            const list = document.getElementById('custom-exercise-list');
-            const newExercise = document.createElement('div');
-            newExercise.textContent = `- ${customExerciseName}`;
-            list.appendChild(newExercise);
-            // Voeg toe aan de checkbox lijst zodat het meegenomen wordt
+            const listContainer = document.getElementById('default-exercises');
             const newCheckboxLabel = document.createElement('label');
-            newCheckboxLabel.innerHTML = `<input type="checkbox" name="exercise" value="${customExerciseName}" checked> ${customExerciseName}`;
-            document.getElementById('default-exercises').appendChild(newCheckboxLabel);
+            newCheckboxLabel.innerHTML = `<input type="checkbox" data-type="${type}" value="${customExerciseName}" checked> ${customExerciseName} (${type})`;
+            listContainer.appendChild(newCheckboxLabel);
             customInput.value = '';
         }
     });
     
     document.getElementById('finish-setup').addEventListener('click', () => {
-        const selectedExercises = document.querySelectorAll('input[name="exercise"]:checked');
-        if (selectedExercises.length === 0) {
-            alert('Kies of voeg minstens één oefening toe.');
-            return;
-        }
-        config.exercises = Array.from(selectedExercises).map(cb => cb.value);
-        
-        // Sla configuratie op en start de app
+        const selectedExercises = document.querySelectorAll('#default-exercises input[type="checkbox"]:checked');
+        if (selectedExercises.length === 0) { alert('Kies of voeg minstens één oefening toe.'); return; }
+        config.exercises = Array.from(selectedExercises).map(cb => ({ name: cb.value, type: cb.dataset.type }));
         localStorage.setItem('wc_config', JSON.stringify(config));
         startApp();
     });
 
-    // === APP LOGICA (KALENDER & DETAIL) ===
+    // === APP LOGICA ===
+    let wakeLock = null;
+
+    async function toggleWakeLock(button) {
+        if (wakeLock) {
+            await wakeLock.release();
+            wakeLock = null;
+            button.textContent = "Start Workout Modus";
+            button.style.backgroundColor = '';
+        } else {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                button.textContent = "✅ Workout Modus Actief";
+                button.style.backgroundColor = '#28a745';
+                wakeLock.addEventListener('release', () => { wakeLock = null; if(button) button.textContent = "Start Workout Modus"; });
+            } catch (e) { alert("Wake Lock wordt niet ondersteund."); }
+        }
+    }
+
+    function startTimer(displayElement, exerciseName) {
+        const seconds = parseInt(prompt(`Hoeveel seconden ${exerciseName}?`, 30), 10);
+        if (isNaN(seconds) || seconds <= 0) return;
+
+        let time = seconds;
+        displayElement.textContent = `⏳ ${time}s`;
+        const interval = setInterval(() => {
+            time--;
+            displayElement.textContent = `⏳ ${time}s`;
+            if (time <= 0) {
+                clearInterval(interval);
+                displayElement.textContent = "✅ Klaar!";
+                document.getElementById("beep-sound").play();
+            }
+        }, 1000);
+    }
 
     function renderCalendar() {
         calendarView.innerHTML = '';
@@ -208,9 +247,7 @@
             dayLink.href = `#day-${i}`;
             dayLink.className = 'calendar-day';
             dayLink.textContent = i;
-            if (localStorage.getItem(`wc_day_${i}`) === 'true') {
-                dayLink.classList.add('completed');
-            }
+            if (localStorage.getItem(`wc_day_${i}`) === 'true') dayLink.classList.add('completed');
             calendarView.appendChild(dayLink);
         }
     }
@@ -229,13 +266,23 @@
         const isCompleted = localStorage.getItem(`wc_day_${dayNumber}`) === 'true';
 
         let contentHTML = `<div class="day-content"><strong>Dag ${dayNumber}</strong><br><br><ul>`;
-        config.exercises.forEach(ex => {
-            contentHTML += `<li>${ex}</li>`;
+        config.exercises.forEach((ex, index) => {
+            contentHTML += `<li>${ex.name}`;
+            if (ex.type === 'timed') {
+                contentHTML += ` <button class="timer-button" onclick="startTimer(document.getElementById('timer-span-${index}'), '${ex.name}')">Start Timer</button><span class="timer" id="timer-span-${index}"></span>`;
+            }
+            contentHTML += `</li>`;
         });
         contentHTML += '</ul></div>';
         card.innerHTML = contentHTML;
 
         if(isCompleted) card.classList.add('completed');
+        
+        const wakeBtn = document.createElement('button');
+        wakeBtn.className = 'btn workout-modus-btn';
+        wakeBtn.textContent = "Start Workout Modus";
+        wakeBtn.onclick = () => toggleWakeLock(wakeBtn);
+        card.appendChild(wakeBtn);
 
         const completeBtn = document.createElement('button');
         completeBtn.className = 'btn complete-button';
@@ -253,9 +300,10 @@
         };
 
         completeBtn.onclick = () => {
-            const newState = !localStorage.getItem(`wc_day_${dayNumber}`);
-            localStorage.setItem(`wc_day_${dayNumber}`, newState ? 'true' : '');
-            if (!newState) localStorage.removeItem(`wc_day_${dayNumber}`);
+            const current = localStorage.getItem(`wc_day_${dayNumber}`) === 'true';
+            const newState = !current;
+            if (newState) localStorage.setItem(`wc_day_${dayNumber}`, 'true');
+            else localStorage.removeItem(`wc_day_${dayNumber}`);
             updateButtonState(newState);
         };
 
@@ -269,10 +317,12 @@
         if (hash.startsWith('#day-')) {
             const dayNumber = parseInt(hash.substring(5), 10);
             calendarView.style.display = 'none';
+            appControls.style.display = 'none';
             detailView.style.display = 'block';
             renderDetailView(dayNumber);
         } else {
             calendarView.style.display = 'grid';
+            appControls.style.display = 'block';
             detailView.style.display = 'none';
             renderCalendar();
         }
@@ -281,21 +331,17 @@
     function resetApp() {
       if (confirm("Weet je zeker dat je de hele challenge en je configuratie wilt wissen?")) {
         localStorage.clear();
-        location.href = location.pathname; // Herlaad de pagina zonder hash
+        location.href = location.pathname;
       }
     }
-
-    // === INITIALISATIE ===
 
     function startApp() {
         setupContainer.style.display = 'none';
         appContainer.style.display = 'block';
         document.querySelector('.welcome-message').textContent = `Zet 'm op, ${config.userName}!`;
-
         document.getElementById('reset-btn').addEventListener('click', resetApp);
-        
         window.addEventListener('hashchange', router);
-        router(); // Roep de router aan om de juiste view te tonen
+        router();
     }
 
     function init() {
@@ -310,9 +356,7 @@
         }
     }
 
-    // Start de applicatie
     init();
-
   </script>
 </body>
 </html>
